@@ -1,0 +1,391 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Typography,
+  Button,
+  Card,
+  CardContent,
+  Grid,
+  Chip,
+  CircularProgress,
+  Alert,
+  Divider,
+  IconButton,
+} from '@mui/material';
+import {
+  ArrowBack as BackIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  AccountBalance as PortfolioIcon,
+  Phone as PhoneIcon,
+  Email as EmailIcon,
+  LocationOn as LocationIcon,
+  Language as LanguageIcon,
+  AttachMoney as CurrencyIcon,
+  TrendingUp as TrendingUpIcon,
+  Visibility as ViewIcon,
+} from '@mui/icons-material';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { clientService } from '../services/clientService';
+import { assetService } from '../services/assetService';
+import ConfirmDialog from '../components/ConfirmDialog';
+
+const COLORS = ['#1976d2', '#388e3c', '#f57c00', '#d32f2f'];
+
+export default function ClientDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [client, setClient] = useState(null);
+  const [portfolio, setPortfolio] = useState(null);
+  const [assets, setAssets] = useState([]);
+  const [assetDistribution, setAssetDistribution] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  useEffect(() => {
+    loadClientData();
+  }, [id]);
+
+  const loadClientData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const clientData = await clientService.getWithPortfolios(id);
+      setClient(clientData);
+      
+      // Extract portfolio if exists (one-to-one relationship)
+      if (clientData.portfolios && clientData.portfolios.length > 0) {
+        setPortfolio(clientData.portfolios[0]);
+      }
+    } catch (err) {
+      console.error('Error loading client:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box>
+        <Button
+          startIcon={<BackIcon />}
+          onClick={() => navigate('/clients')}
+          sx={{ mb: 2 }}
+        >
+          Back to Clients
+        </Button>
+        <Alert severity="error">
+          Error loading client: {error}
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (!client) {
+    return (
+      <Box>
+        <Button
+          startIcon={<BackIcon />}
+          onClick={() => navigate('/clients')}
+          sx={{ mb: 2 }}
+        >
+          Back to Clients
+        </Button>
+        <Alert severity="warning">
+          Client not found
+        </Alert>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      {/* Header */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box display="flex" alignItems="center" gap={2}>
+          <IconButton onClick={() => navigate('/clients')}>
+            <BackIcon />
+          </IconButton>
+          <div>
+            <Typography variant="h4" fontWeight="bold">
+              {client.fullName || `${client.firstName} ${client.lastName}`}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Client ID: {client.id}
+            </Typography>
+          </div>
+        </Box>
+        <Box display="flex" gap={1}>
+          {client.active ? (
+            <Chip label="Active" color="success" />
+          ) : (
+            <Chip label="Inactive" color="default" />
+          )}
+          <Button
+            variant="contained"
+            startIcon={<EditIcon />}
+            onClick={() => navigate(`/clients/${id}/edit`)}
+          >
+            Edit Client
+          </Button>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            Delete
+          </Button>
+        </Box>
+      </Box>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Delete Client"
+        message={`Are you sure you want to delete ${client?.fullName || 'this client'}? This action cannot be undone.`}
+        onConfirm={async () => {
+          try {
+            await clientService.delete(id);
+            navigate('/clients');
+          } catch (err) {
+            setError(err.message);
+            setDeleteDialogOpen(false);
+          }
+        }}
+        onCancel={() => setDeleteDialogOpen(false)}
+      />
+
+      <Grid container spacing={3}>
+        {/* Contact Information */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom fontWeight="bold">
+                Contact Information
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              
+              <Box display="flex" alignItems="center" gap={2} mb={2}>
+                <EmailIcon color="action" />
+                <div>
+                  <Typography variant="body2" color="text.secondary">
+                    Email
+                  </Typography>
+                  <Typography variant="body1">
+                    {client.email}
+                  </Typography>
+                </div>
+              </Box>
+
+              <Box display="flex" alignItems="center" gap={2} mb={2}>
+                <PhoneIcon color="action" />
+                <div>
+                  <Typography variant="body2" color="text.secondary">
+                    Phone
+                  </Typography>
+                  <Typography variant="body1">
+                    {client.phone || 'N/A'}
+                  </Typography>
+                </div>
+              </Box>
+
+              <Box display="flex" alignItems="center" gap={2}>
+                <LocationIcon color="action" />
+                <div>
+                  <Typography variant="body2" color="text.secondary">
+                    Address
+                  </Typography>
+                  <Typography variant="body1">
+                    {client.address || 'N/A'}
+                  </Typography>
+                  <Typography variant="body2">
+                    {[client.city, client.stateOrProvince, client.postalCode]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </Typography>
+                  <Typography variant="body2">
+                    {client.country}
+                  </Typography>
+                </div>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Regional Settings */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom fontWeight="bold">
+                Regional Settings
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              
+              <Box display="flex" alignItems="center" gap={2} mb={2}>
+                <LanguageIcon color="action" />
+                <div>
+                  <Typography variant="body2" color="text.secondary">
+                    Country
+                  </Typography>
+                  <Typography variant="body1">
+                    {client.country} ({client.countryCode})
+                  </Typography>
+                </div>
+              </Box>
+
+              <Box display="flex" alignItems="center" gap={2} mb={2}>
+                <CurrencyIcon color="action" />
+                <div>
+                  <Typography variant="body2" color="text.secondary">
+                    Preferred Currency
+                  </Typography>
+                  <Typography variant="body1">
+                    {client.preferredCurrency || 'USD'}
+                  </Typography>
+                </div>
+              </Box>
+
+              <Box mb={2}>
+                <Typography variant="body2" color="text.secondary">
+                  Timezone
+                </Typography>
+                <Typography variant="body1">
+                  {client.timezone || 'N/A'}
+                </Typography>
+              </Box>
+
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  Locale
+                </Typography>
+                <Typography variant="body1">
+                  {client.locale || 'N/A'}
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Portfolio Information */}
+        <Grid item xs={12}>
+          <Card>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <PortfolioIcon color="primary" />
+                  <Typography variant="h6" fontWeight="bold">
+                    Portfolio
+                  </Typography>
+                </Box>
+                {portfolio && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => navigate(`/portfolios/${portfolio.id}`)}
+                  >
+                    View Portfolio
+                  </Button>
+                )}
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              
+              {portfolio ? (
+                <Box>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Portfolio Name
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {portfolio.name}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Total Value
+                      </Typography>
+                      <Typography variant="h6" color="primary" fontWeight="bold">
+                        ${portfolio.totalValue?.toLocaleString() || '0.00'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.secondary">
+                        Description
+                      </Typography>
+                      <Typography variant="body1">
+                        {portfolio.description || 'No description'}
+                      </Typography>
+                    </Grid>
+                    {assetDistribution.length > 0 && (
+                      <Grid item xs={12}>
+                        <Divider sx={{ my: 2 }} />
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Asset Distribution
+                        </Typography>
+                        <ResponsiveContainer width="100%" height={200}>
+                          <PieChart>
+                            <Pie
+                              data={assetDistribution}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={70}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {assetDistribution.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <Box display="flex" justifyContent="center" mt={1}>
+                          <Button
+                            variant="text"
+                            size="small"
+                            startIcon={<ViewIcon />}
+                            onClick={() => navigate(`/portfolios/${portfolio.id}`)}
+                          >
+                            View Full Portfolio
+                          </Button>
+                        </Box>
+                      </Grid>
+                    )}
+                  </Grid>
+                </Box>
+              ) : (
+                <Box display="flex" justifyContent="center" py={4}>
+                  <Box textAlign="center">
+                    <Typography color="text.secondary" gutterBottom>
+                      No portfolio found for this client
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => navigate(`/portfolios/new?clientId=${id}`)}
+                    >
+                      Create Portfolio
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+}
