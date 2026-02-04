@@ -5,6 +5,9 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.demo.MoneyMap.exception.InsufficientFundsException;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -64,6 +67,14 @@ public class Client {
     @Column(length = 10)
     private String locale; // Locale for language/formatting (e.g., en_US, hi_IN)
 
+    @Column(name = "wallet_balance", precision = 19, scale = 4)
+    private BigDecimal walletBalance = BigDecimal.ZERO;
+    
+    @Column(name = "wallet_locked_balance", precision = 19, scale = 4)
+    private BigDecimal walletLockedBalance = BigDecimal.ZERO;
+    
+    @Column(name = "wallet_created_at")
+    private LocalDateTime walletCreatedAt;
     @Column(nullable = false)
     @Builder.Default
     private Boolean active = true;
@@ -88,6 +99,21 @@ public class Client {
         if (portfolio != null) {
             portfolio.setClient(this);
         }
+    }
+     // Wallet methods
+    public void addToWallet(BigDecimal amount) {
+        this.walletBalance = this.walletBalance.add(amount);
+    }
+    
+    public void deductFromWallet(BigDecimal amount) {
+        if (walletBalance.compareTo(amount) < 0) {
+            throw new InsufficientFundsException("Insufficient wallet balance");
+        }
+        this.walletBalance = this.walletBalance.subtract(amount);
+    }
+    
+    public boolean hasSufficientFunds(BigDecimal amount) {
+        return walletBalance.compareTo(amount) >= 0;
     }
 
     /**

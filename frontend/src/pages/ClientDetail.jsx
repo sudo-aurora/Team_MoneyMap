@@ -25,10 +25,13 @@ import {
   AttachMoney as CurrencyIcon,
   TrendingUp as TrendingUpIcon,
   Visibility as ViewIcon,
+  AccountBalanceWallet as WalletIcon,
+  ShoppingCart as BuyIcon,
 } from '@mui/icons-material';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { clientService } from '../services/clientService';
 import { assetService } from '../services/assetService';
+import { tradingService } from '../services/tradingService';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 const COLORS = ['#1976d2', '#388e3c', '#f57c00', '#d32f2f'];
@@ -43,6 +46,7 @@ export default function ClientDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
 
   useEffect(() => {
     loadClientData();
@@ -55,15 +59,47 @@ export default function ClientDetail() {
       const clientData = await clientService.getWithPortfolios(id);
       setClient(clientData);
       
+      // Load wallet balance
+      loadWalletBalance();
+      
       // Extract portfolio if exists (one-to-one relationship)
       if (clientData.portfolios && clientData.portfolios.length > 0) {
         setPortfolio(clientData.portfolios[0]);
+        loadAssets(clientData.portfolios[0].id);
       }
     } catch (err) {
       console.error('Error loading client:', err);
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadWalletBalance = async () => {
+    try {
+      console.log('Loading wallet balance for client:', id);
+      
+      // Validate clientId before making API call
+      if (!id || id === '' || id === ':') {
+        console.log('Invalid clientId, skipping wallet balance load');
+        return;
+      }
+      
+      const balance = await tradingService.getWalletBalance(id);
+      console.log('Raw balance response:', balance);
+      console.log('Balance type:', typeof balance);
+      console.log('Balance value:', balance);
+      
+      // Convert BigDecimal to number and handle potential string values
+      const numericBalance = typeof balance === 'string' ? parseFloat(balance) : balance;
+      const finalBalance = numericBalance || 0;
+      
+      console.log('Final numeric balance:', finalBalance);
+      setWalletBalance(finalBalance);
+    } catch (err) {
+      console.error('Error loading wallet balance:', err);
+      console.error('Error details:', err.response?.data);
+      setWalletBalance(0);
     }
   };
 
@@ -279,6 +315,33 @@ export default function ClientDetail() {
 
         {/* Portfolio Information */}
         <Grid item xs={12}>
+          {/* Wallet Balance Card */}
+          <Card sx={{ mb: 2, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box display="flex" alignItems="center" gap={2}>
+                  <WalletIcon sx={{ fontSize: 32, color: 'white' }} />
+                  <Box>
+                    <Typography variant="h6" color="white" gutterBottom>
+                      Wallet Balance
+                    </Typography>
+                    <Typography variant="h4" color="white" fontWeight="bold">
+                      ${walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Button
+                  variant="contained"
+                  startIcon={<BuyIcon />}
+                  onClick={() => navigate(`/buy-asset?clientId=${id}`)}
+                  sx={{ bgcolor: 'white', color: '#667eea', '&:hover': { bgcolor: '#f0f0f0' } }}
+                >
+                  Buy Asset
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>

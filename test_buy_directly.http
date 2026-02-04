@@ -1,0 +1,17 @@
+### Test Buy Asset Directly
+
+### 1. Test with exact same parameters as frontend
+POST http://localhost:8080/api/v1/trading/buy?clientId=1&symbol=TSLA&quantity=2&price=245.8
+
+### 2. Test with different parameters
+POST http://localhost:8080/api/v1/trading/buy?clientId=1&symbol=AAPL&quantity=1&price=175.5
+
+### 3. Test with curl to see exact error
+curl -v -X POST "http://localhost:8080/api/v1/trading/buy?clientId=1&symbol=TSLA&quantity=2&price=245.8" \
+     -H "Content-Type: application/json"
+
+### 4. Test with minimal parameters
+POST http://localhost:8080/api/v1/trading/buy?clientId=1&symbol=AAPL&quantity=1&price=100
+
+### 5. Test with invalid symbol (should get BadRequest, not 403)
+POST http://localhost:8080/api/v1/trading/buy?clientId=1&symbol=INVALID&quantity=1&price=100
