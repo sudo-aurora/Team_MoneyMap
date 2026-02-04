@@ -5,17 +5,16 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   Chip,
   Button,
   CircularProgress,
   Alert,
-  IconButton,
+  TextField,
+  Autocomplete,
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
   TrendingUp as TrendingUpIcon,
-  Person as PersonIcon,
 } from '@mui/icons-material';
 import { portfolioService } from '../services/portfolioService';
 
@@ -24,6 +23,7 @@ export default function Portfolios() {
   const [portfolios, setPortfolios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchValue, setSearchValue] = useState(null);
 
   useEffect(() => {
     loadPortfolios();
@@ -33,8 +33,9 @@ export default function Portfolios() {
     try {
       setLoading(true);
       setError(null);
+
       const response = await portfolioService.getAll(0, 100);
-      
+
       if (response.content) {
         setPortfolios(response.content);
       } else if (Array.isArray(response)) {
@@ -60,15 +61,43 @@ export default function Portfolios() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <div>
-          <Typography variant="h4" gutterBottom fontWeight="bold">
+      {/* Header + Search */}
+      <Box
+        mb={3}
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        flexWrap="wrap"
+        gap={2}
+      >
+        <Box>
+          <Typography variant="h4" fontWeight="bold">
             Portfolios
           </Typography>
+
           <Typography variant="body1" color="text.secondary">
             Manage client portfolios and view performance
           </Typography>
-        </div>
+        </Box>
+
+        {/* ⭐ SEARCH BAR */}
+        <Autocomplete
+          sx={{ width: 320 }}
+          options={portfolios}
+          getOptionLabel={(option) => option.name || ''}
+          value={searchValue}
+          onChange={(event, newValue) => {
+            if (newValue) {
+              navigate(`/portfolios/${newValue.id}`);
+
+              // ⭐ clears search after click
+              setSearchValue(null);
+            }
+          }}
+          renderInput={(params) => (
+            <TextField {...params} label="Search portfolios..." size="small" />
+          )}
+        />
       </Box>
 
       {error && (
@@ -83,9 +112,11 @@ export default function Portfolios() {
             <Box display="flex" justifyContent="center" alignItems="center" py={8}>
               <Box textAlign="center">
                 <TrendingUpIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" gutterBottom>
+
+                <Typography variant="h6" color="text.secondary">
                   No Portfolios Found
                 </Typography>
+
                 <Typography variant="body2" color="text.secondary">
                   Portfolios will appear here once clients are assigned
                 </Typography>
@@ -94,57 +125,73 @@ export default function Portfolios() {
           </CardContent>
         </Card>
       ) : (
-        <Grid container spacing={3}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: '1fr 1fr',
+              md: '1fr 1fr 1fr',
+            },
+            gap: 3,
+          }}
+        >
           {portfolios.map((portfolio) => (
-            <Grid item xs={12} sm={6} md={4} key={portfolio.id}>
-              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Box display="flex" justifyContent="space-between" alignItems="start" mb={2}>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom>
-                      {portfolio.name}
-                    </Typography>
-                    <Chip
-                      label={portfolio.active ? 'Active' : 'Inactive'}
-                      color={portfolio.active ? 'success' : 'default'}
-                      size="small"
-                    />
-                  </Box>
-
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2, minHeight: 40 }}>
-                    {portfolio.description || 'No description'}
+            <Card
+              key={portfolio.id}
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: '0.25s',
+                '&:hover': {
+                  transform: 'translateY(-6px)',
+                  boxShadow: 6,
+                },
+              }}
+            >
+              <CardContent sx={{ flexGrow: 1 }}>
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="flex-start"
+                  mb={2}
+                >
+                  <Typography variant="h6" fontWeight="bold">
+                    {portfolio.name}
                   </Typography>
 
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Total Value
-                    </Typography>
-                    <Typography variant="h5" color="primary" fontWeight="bold">
-                      ${portfolio.totalValue?.toLocaleString() || '0.00'}
-                    </Typography>
-                  </Box>
-
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <PersonIcon fontSize="small" color="action" />
-                    <Typography variant="body2" color="text.secondary">
-                      Client ID: {portfolio.clientId || 'N/A'}
-                    </Typography>
-                  </Box>
-                </CardContent>
-
-                <Box sx={{ p: 2, pt: 0 }}>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    startIcon={<ViewIcon />}
-                    onClick={() => navigate(`/portfolios/${portfolio.id}`)}
-                  >
-                    View Details
-                  </Button>
+                  <Chip
+                    label={portfolio.active ? 'Active' : 'Inactive'}
+                    color={portfolio.active ? 'success' : 'default'}
+                    size="small"
+                  />
                 </Box>
-              </Card>
-            </Grid>
+
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Total Value
+                  </Typography>
+
+                  <Typography variant="h4" color="primary" fontWeight="bold">
+                    ${portfolio.totalValue?.toLocaleString() || '0.00'}
+                  </Typography>
+                </Box>
+              </CardContent>
+
+              <Box sx={{ p: 2, pt: 0 }}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<ViewIcon />}
+                  onClick={() => navigate(`/portfolios/${portfolio.id}`)}
+                >
+                  View Details
+                </Button>
+              </Box>
+            </Card>
           ))}
-        </Grid>
+        </Box>
       )}
     </Box>
   );
