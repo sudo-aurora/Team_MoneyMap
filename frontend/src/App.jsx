@@ -12,6 +12,7 @@ import PortfolioDetail from './pages/PortfolioDetail';
 import Assets from './pages/Assets';
 import AssetDetail from './pages/AssetDetail';
 import AssetForm from './pages/AssetForm';
+import BuyAsset from './pages/BuyAsset';
 import Payments from './pages/Payments';
 import Alerts from './pages/Alerts';
 import Transactions from './pages/Transactions';
@@ -34,6 +35,7 @@ function App() {
             <Route path="assets/new" element={<AssetForm />} />
             <Route path="assets/:id" element={<AssetDetail />} />
             <Route path="assets/:id/edit" element={<AssetForm />} />
+            <Route path="buy-asset" element={<BuyAsset />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="payments" element={<Payments />} />
             <Route path="alerts" element={<Alerts />} />

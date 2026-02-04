@@ -23,7 +23,7 @@ import {
 import {
   ArrowBack as BackIcon,
   Refresh as RefreshIcon,
-  Add as AddIcon,
+  ShoppingCart as BuyIcon,
   TrendingUp as TrendingUpIcon,
   ShowChart as ChartIcon,
 } from '@mui/icons-material';
@@ -305,19 +305,19 @@ export default function PortfolioDetail() {
                   Assets
                 </Typography>
                 <Button
-                  startIcon={<AddIcon />}
+                  startIcon={<BuyIcon />}
                   variant="contained"
                   size="small"
-                  onClick={() => navigate(`/assets/new?portfolioId=${id}`)}
+                  onClick={() => navigate(`/buy-asset?portfolioId=${id}`)}
                 >
-                  Add Asset
+                  Buy Asset
                 </Button>
               </Box>
 
               {assets.length === 0 ? (
                 <Box display="flex" justifyContent="center" py={4}>
                   <Typography color="text.secondary">
-                    No assets in this portfolio. Click "Add Asset" to create one.
+                    No assets in this portfolio. Click "Buy Asset" to purchase one.
                   </Typography>
                 </Box>
               ) : (
