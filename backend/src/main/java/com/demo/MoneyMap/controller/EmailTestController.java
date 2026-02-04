@@ -1,3 +1,4 @@
+/*
 package com.demo.MoneyMap.controller;
 
 import com.demo.MoneyMap.service.EmailService;
@@ -27,3 +28,4 @@ public class EmailTestController {
         return "Email sent successfully";
     }
 }
+*/
