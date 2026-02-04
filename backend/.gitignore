@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Environment files
+.env
+.env.*
+
+# Spring Boot config files (DO NOT COMMIT SECRETS)
+application.properties
+application.yml
+

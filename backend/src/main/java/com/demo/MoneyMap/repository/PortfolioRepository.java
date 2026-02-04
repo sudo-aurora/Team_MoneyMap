@@ -83,4 +83,6 @@ public interface PortfolioRepository extends JpaRepository<Portfolio, Long> {
      * Count active portfolios.
      */
     long countByActiveTrue();
+
+    List<Portfolio> findTop5ByOrderByTotalValueAsc();
 }
