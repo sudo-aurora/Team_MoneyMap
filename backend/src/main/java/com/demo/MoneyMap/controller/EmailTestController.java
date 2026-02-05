@@ -19,7 +19,7 @@ public class EmailTestController {
     public String testEmail() {
 
         emailService.sendLowValueAlert(
-                "siddsubramanian2210@gmail.com",
+                "sachinrangabaskar344@gmail.com",
                 "Test Portfolio",
                 new BigDecimal("12345")
         );
