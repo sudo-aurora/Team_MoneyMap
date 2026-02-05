@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request
+import yfinance as yf
 import requests
 import os
 from dotenv import load_dotenv
@@ -7,81 +8,108 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# =========================
+# CONFIG
+# =========================
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
-BASE_URL = "https://finnhub.io/api/v1"
+FINNHUB_QUOTE_URL = "https://finnhub.io/api/v1/quote"
 
+ALLOWED_PERIODS = ["5d", "1mo", "3mo", "6mo", "1y"]
 
-# -------------------------------
-# Health check
-# -------------------------------
-@app.route("/health", methods=["GET"])
-def health():
-    return jsonify({"status": "UP"}), 200
-
-
-# -------------------------------
-# Get stock quote
-# Example: /quote?symbol=AAPL
-# -------------------------------
+# =========================
+# 1️⃣ LIVE PRICE (Finnhub)
+# =========================
 @app.route("/quote", methods=["GET"])
-def get_quote():
+def get_live_quote():
     symbol = request.args.get("symbol")
+
     if not symbol:
-        return jsonify({"error": "symbol query param required"}), 400
+        return jsonify({"error": "symbol query param is required"}), 400
 
-    url = f"{BASE_URL}/quote"
     params = {
-        "symbol": symbol,
+        "symbol": symbol.upper(),
         "token": FINNHUB_API_KEY
     }
 
-    response = requests.get(url, params=params)
-    return jsonify(response.json()), response.status_code
+    response = requests.get(FINNHUB_QUOTE_URL, params=params)
+    data = response.json()
+
+    if response.status_code != 200 or "c" not in data:
+        return jsonify({"error": "Failed to fetch live quote"}), 500
+
+    return jsonify({
+        "symbol": symbol.upper(),
+        "currentPrice": data["c"],        # current price
+        "change": data["d"],               # price change
+        "changePercent": data["dp"],       # % change
+        "high": data["h"],
+        "low": data["l"],
+        "open": data["o"],
+        "previousClose": data["pc"],
+        "timestamp": data["t"]
+    })
 
 
-# -------------------------------
-# Get company profile
-# Example: /company-profile?symbol=AAPL
-# -------------------------------
-@app.route("/company-profile", methods=["GET"])
-def company_profile():
-    symbol = request.args.get("symbol")
-    if not symbol:
-        return jsonify({"error": "symbol query param required"}), 400
+# =========================
+# 2️⃣ HISTORICAL DATA (Yahoo)
+# =========================
+@app.route("/stock/<ticker>", methods=["GET"])
+def get_stock_data(ticker):
+    try:
+        period = request.args.get("period", "3mo")
 
-    url = f"{BASE_URL}/stock/profile2"
-    params = {
-        "symbol": symbol,
-        "token": FINNHUB_API_KEY
-    }
+        if period not in ALLOWED_PERIODS:
+            return jsonify({
+                "error": f"Invalid period. Allowed values: {ALLOWED_PERIODS}"
+            }), 400
 
-    response = requests.get(url, params=params)
-    return jsonify(response.json()), response.status_code
+        stock = yf.Ticker(ticker)
+        info = stock.info
+
+        history = stock.history(period=period)
+
+        if history.empty:
+            return jsonify({"error": "Invalid ticker or no data available"}), 404
+
+        historical_data = []
+        for date, row in history.iterrows():
+            historical_data.append({
+                "date": date.strftime("%Y-%m-%d"),
+                "open": round(float(row["Open"]), 2),
+                "high": round(float(row["High"]), 2),
+                "low": round(float(row["Low"]), 2),
+                "close": round(float(row["Close"]), 2),
+                "volume": int(row["Volume"])
+            })
+
+        latest_price = historical_data[-1]["close"]
+        first_price = historical_data[0]["close"]
+
+        return_percent = round(
+            ((latest_price - first_price) / first_price) * 100, 2
+        )
+
+        return jsonify({
+            "metadata": {
+                "ticker": ticker.upper(),
+                "companyName": info.get("longName"),
+                "sector": info.get("sector"),
+                "industry": info.get("industry"),
+                "currency": info.get("currency"),
+                "exchange": info.get("exchange")
+            },
+            "latestPrice": latest_price,
+            "period": period,
+            "historicalData": historical_data,
+            "returnPercentage": return_percent
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
-
-@app.route("/candles", methods=["GET"])
-def get_candles():
-    symbol = request.args.get("symbol")
-    resolution = request.args.get("resolution", "D")
-    from_ts = request.args.get("from")
-    to_ts = request.args.get("to")
-
-    if not all([symbol, from_ts, to_ts]):
-        return jsonify({"error": "symbol, from, to are required"}), 400
-
-    url = f"{BASE_URL}/stock/candle"
-    params = {
-        "symbol": symbol,
-        "resolution": resolution,
-        "from": from_ts,
-        "to": to_ts,
-        "token": FINNHUB_API_KEY
-    }
-
-    response = requests.get(url, params=params)
-    return jsonify(response.json()), response.status_code
-
-
+# =========================
+# START SERVER
+# =========================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(port=5000, debug=True)
