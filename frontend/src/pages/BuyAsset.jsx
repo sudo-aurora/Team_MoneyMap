@@ -139,8 +139,17 @@ export default function BuyAsset() {
       console.log('Balance type:', typeof balance);
       console.log('Balance value:', balance);
       
-      // Convert BigDecimal to number and handle potential string values
-      const numericBalance = typeof balance === 'string' ? parseFloat(balance) : balance;
+      // Handle BigDecimal object or string response
+      let numericBalance = 0;
+      if (typeof balance === 'object' && balance !== null) {
+        // If it's an object, try to get the value property or convert to string then number
+        numericBalance = parseFloat(balance.value || balance.toString() || '0');
+      } else if (typeof balance === 'string') {
+        numericBalance = parseFloat(balance);
+      } else if (typeof balance === 'number') {
+        numericBalance = balance;
+      }
+      
       const finalBalance = numericBalance || 0;
       
       console.log('Final numeric balance:', finalBalance);
@@ -417,7 +426,7 @@ export default function BuyAsset() {
               <Box display="flex" alignItems="center" gap={1} mb={2}>
                 <WalletIcon color="primary" />
                 <Typography variant="body2">
-                  Wallet Balance: <strong>${hasValidClient ? walletBalance?.toLocaleString() : '0.00'}</strong>
+                  Wallet Balance: <strong>${hasValidClient ? walletBalance.toLocaleString() : '0.00'}</strong>
                 </Typography>
               </Box>
 
