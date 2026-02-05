@@ -88,13 +88,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     BigDecimal getTotalAmountByAssetIdAndType(@Param("assetId") Long assetId, @Param("transactionType") TransactionType transactionType);
 
     /**
-     * Count transactions by asset ID.
+     * Find all transactions with assets eagerly loaded.
      */
-    long countByAssetId(Long assetId);
-
-    /**
-     * Find recent transactions for an asset.
-     */
-    @Query("SELECT t FROM Transaction t WHERE t.asset.id = :assetId ORDER BY t.transactionDate DESC")
-    List<Transaction> findRecentByAssetId(@Param("assetId") Long assetId, Pageable pageable);
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.asset ORDER BY t.transactionDate DESC")
+    Page<Transaction> findAllWithAssets(Pageable pageable);
 }

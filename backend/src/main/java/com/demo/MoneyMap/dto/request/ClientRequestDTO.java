@@ -73,4 +73,7 @@ public class ClientRequestDTO {
     @Size(max = 10, message = "Locale must not exceed 10 characters")
     @Schema(description = "Locale for language/formatting", example = "en_US")
     private String locale;
+
+    @Schema(description = "Initial wallet balance for trading", example = "10000.00")
+    private java.math.BigDecimal walletBalance;
 }
