@@ -19,6 +19,12 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Divider,
 } from '@mui/material';
 
 import {
@@ -27,6 +33,7 @@ import {
   Add as AddIcon,
   TrendingUp as TrendingUpIcon,
   ShowChart as ChartIcon,
+  Sell as SellIcon,
 } from '@mui/icons-material';
 
 import {
@@ -45,6 +52,10 @@ import {
 
 import { portfolioService } from '../services/portfolioService';
 import { assetService } from '../services/assetService';
+import { tradingService } from '../services/tradingService';
+import { 
+  AccountBalanceWallet as WalletIcon 
+} from '@mui/icons-material';
 
 const COLORS = [
   '#1976d2', // Crypto - Blue
@@ -69,9 +80,28 @@ export default function PortfolioDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Sell dialog state
+  const [sellDialogOpen, setSellDialogOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState(null);
+  const [sellQuantity, setSellQuantity] = useState('');
+  const [sellPrice, setSellPrice] = useState('');
+  const [selling, setSelling] = useState(false);
+  const [sellError, setSellError] = useState(null);
+  const [sellSuccess, setSellSuccess] = useState(null);
+
+  // Wallet balance state
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [loadingWallet, setLoadingWallet] = useState(false);
+
   useEffect(() => {
     loadPortfolioData();
   }, [id]);
+
+  useEffect(() => {
+    if (portfolio?.clientId) {
+      loadWalletBalance(portfolio.clientId);
+    }
+  }, [portfolio?.clientId]);
 
   const loadPortfolioData = async () => {
     try {
@@ -117,6 +147,40 @@ export default function PortfolioDetail() {
     }
   };
 
+  const loadWalletBalance = async (clientIdToLoad) => {
+    try {
+      setLoadingWallet(true);
+      console.log('Loading wallet balance for client:', clientIdToLoad);
+      
+      if (!clientIdToLoad) {
+        console.log('No clientId provided, skipping wallet balance load');
+        return;
+      }
+      
+      const balance = await tradingService.getWalletBalance(clientIdToLoad);
+      console.log('Raw balance response:', balance);
+      
+      // Handle BigDecimal object or string response
+      let numericBalance = 0;
+      if (typeof balance === 'object' && balance !== null) {
+        numericBalance = parseFloat(balance.value || balance.toString() || '0');
+      } else if (typeof balance === 'string') {
+        numericBalance = parseFloat(balance);
+      } else if (typeof balance === 'number') {
+        numericBalance = balance;
+      }
+      
+      const finalBalance = numericBalance || 0;
+      console.log('Final wallet balance:', finalBalance);
+      setWalletBalance(finalBalance);
+    } catch (err) {
+      console.error('Error loading wallet balance:', err);
+      setWalletBalance(0);
+    } finally {
+      setLoadingWallet(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box height="60vh" display="flex" justifyContent="center" alignItems="center">
@@ -156,6 +220,12 @@ export default function PortfolioDetail() {
       gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
       icon: <TrendingUpIcon sx={{ fontSize: 40, opacity: 0.25 }} />,
     },
+    {
+      title: 'Wallet Balance',
+      value: `$${walletBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      gradient: 'linear-gradient(135deg, #1976d2 0%, #2196f3 100%)',
+      icon: <WalletIcon sx={{ fontSize: 40, opacity: 0.25 }} />,
+    },
   ];
 
   const formatCurrency = (value) => {
@@ -183,6 +253,87 @@ export default function PortfolioDetail() {
   const largestHolding = chartData.length > 0 ? chartData[0] : null;
   const totalShownValue = chartData.reduce((sum, item) => sum + item.value, 0);
 
+  // Sell handler functions
+  const handleSellClick = (asset) => {
+    setSelectedAsset(asset);
+    setSellQuantity('');
+    setSellPrice(asset.currentPrice?.toString() || '');
+    setSellError(null);
+    setSellSuccess(null);
+    setSellDialogOpen(true);
+  };
+
+  const handleSellClose = () => {
+    setSellDialogOpen(false);
+    setSelectedAsset(null);
+    setSellQuantity('');
+    setSellPrice('');
+    setSellError(null);
+    setSellSuccess(null);
+  };
+
+  const calculateSellProceeds = () => {
+    const quantity = parseFloat(sellQuantity) || 0;
+    const price = parseFloat(sellPrice) || 0;
+    return quantity * price;
+  };
+
+  const canSellQuantity = () => {
+    if (!selectedAsset || !sellQuantity) return false;
+    const quantity = parseFloat(sellQuantity) || 0;
+    return quantity > 0 && quantity <= selectedAsset.quantity;
+  };
+
+  const handleSellSubmit = async () => {
+    try {
+      setSelling(true);
+      setSellError(null);
+      setSellSuccess(null);
+      
+      if (!selectedAsset || !sellQuantity || !sellPrice) {
+        setSellError('Please fill all required fields');
+        return;
+      }
+      
+      const quantity = parseFloat(sellQuantity);
+      const price = parseFloat(sellPrice);
+      
+      if (quantity <= 0 || price <= 0) {
+        setSellError('Quantity and price must be positive');
+        return;
+      }
+      
+      if (quantity > selectedAsset.quantity) {
+        setSellError('Cannot sell more than owned quantity');
+        return;
+      }
+      
+      console.log('Sell Asset Request:', {
+        clientId: portfolio.clientId,
+        assetId: selectedAsset.id,
+        quantity,
+        price
+      });
+      
+      await tradingService.sellAsset(portfolio.clientId, selectedAsset.id, quantity, price);
+      
+      setSellSuccess('Asset sold successfully!');
+      
+      // Reload portfolio data after a short delay
+      setTimeout(() => {
+        loadPortfolioData();
+        loadWalletBalance(portfolio.clientId);
+        handleSellClose();
+      }, 1500);
+      
+    } catch (err) {
+      console.error('Sell error:', err);
+      setSellError(err.message || 'Failed to sell asset');
+    } finally {
+      setSelling(false);
+    }
+  };
+
   return (
     <Box sx={{ width: '100%', p: { xs: 2, md: 3 } }}>
 
@@ -198,7 +349,7 @@ export default function PortfolioDetail() {
               {portfolio.name}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Portfolio ID: {portfolio.id} • {portfolio.description || 'Diversified investment portfolio'}
+              {portfolio.description || 'Diversified investment portfolio'}
             </Typography>
           </Box>
         </Box>
@@ -213,7 +364,7 @@ export default function PortfolioDetail() {
       {/* STAT CARDS */}
       <Grid container spacing={3} mb={4}>
         {statCards.map((card, i) => (
-          <Grid item xs={12} sm={6} lg={3} key={i}>
+          <Grid item xs={12} sm={6} lg={2.4} key={i}>
             <Card
               sx={{
                 height: '100%',
@@ -223,13 +374,13 @@ export default function PortfolioDetail() {
                 boxShadow: 3,
               }}
             >
-              <CardContent sx={{ p: 3 }}>
+              <CardContent sx={{ p: 2 }}>
                 <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                   <Box>
                     <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                       {card.title}
                     </Typography>
-                    <Typography variant="h4" fontWeight="bold">
+                    <Typography variant="h5" fontWeight="bold">
                       {card.value}
                     </Typography>
                   </Box>
@@ -493,6 +644,15 @@ export default function PortfolioDetail() {
                 Refresh
               </Button>
               <Button
+                variant="outlined"
+                startIcon={loadingWallet ? <CircularProgress size={16} /> : <WalletIcon />}
+                onClick={() => loadWalletBalance(portfolio.clientId)}
+                size="small"
+                disabled={loadingWallet || !portfolio?.clientId}
+              >
+                {loadingWallet ? 'Loading...' : 'Refresh Wallet'}
+              </Button>
+              <Button
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={() => navigate(`/buy-asset?portfolioId=${id}&clientId=${portfolio.clientId}`)}
@@ -501,6 +661,7 @@ export default function PortfolioDetail() {
                 Buy Asset
               </Button>
             </Box>
+
           </Box>
 
           <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
@@ -513,14 +674,15 @@ export default function PortfolioDetail() {
                   <TableCell align="right" sx={{ fontWeight: 'bold', py: 2 }}>Purchase Price</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold', py: 2 }}>Current Price</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold', py: 2 }}>Current Value</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 'bold', py: 2, pr: 3 }}>P/L %</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 'bold', py: 2 }}>P/L %</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 'bold', py: 2, pr: 3 }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
 
               <TableBody>
                 {assets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
                       <Box sx={{ textAlign: 'center' }}>
                         <Typography variant="body1" color="text.secondary" gutterBottom>
                           No assets found in this portfolio
@@ -616,6 +778,22 @@ export default function PortfolioDetail() {
                             }}
                           />
                         </TableCell>
+
+                        <TableCell align="center" sx={{ pr: 3 }}>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            startIcon={<SellIcon />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSellClick(asset);
+                            }}
+                            sx={{ minWidth: 100 }}
+                          >
+                            Sell
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })
@@ -625,6 +803,138 @@ export default function PortfolioDetail() {
           </TableContainer>
         </CardContent>
       </Card>
+
+      {/* SELL ASSET DIALOG */}
+      <Dialog 
+        open={sellDialogOpen} 
+        onClose={handleSellClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 3 }
+        }}
+      >
+        <DialogTitle>
+          <Typography variant="h6" fontWeight="bold">
+            Sell Asset - {selectedAsset?.name}
+          </Typography>
+        </DialogTitle>
+        
+        <DialogContent>
+          {sellError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSellError(null)}>
+              {sellError}
+            </Alert>
+          )}
+          
+          {sellSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {sellSuccess}
+            </Alert>
+          )}
+          
+          {selectedAsset && (
+            <Box>
+              <Grid container spacing={2} mb={2}>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Owned Quantity
+                  </Typography>
+                  <Typography variant="h6" fontWeight="bold">
+                    {selectedAsset.quantity?.toLocaleString()}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Current Price
+                  </Typography>
+                  <Typography variant="h6" fontWeight="bold">
+                    ${selectedAsset.currentPrice?.toLocaleString(undefined, { 
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2 
+                    })}
+                  </Typography>
+                </Grid>
+              </Grid>
+              
+              <Divider sx={{ my: 2 }} />
+              
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Quantity to Sell"
+                    type="number"
+                    value={sellQuantity}
+                    onChange={(e) => setSellQuantity(e.target.value)}
+                    placeholder="0.00"
+                    inputProps={{ 
+                      step: "0.01", 
+                      min: "0",
+                      max: selectedAsset.quantity
+                    }}
+                    disabled={selling}
+                    error={sellQuantity && !canSellQuantity()}
+                    helperText={sellQuantity && !canSellQuantity() ? 
+                      "Invalid quantity" : 
+                      `Maximum: ${selectedAsset.quantity}`}
+                  />
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Price per Unit"
+                    type="number"
+                    value={sellPrice}
+                    onChange={(e) => setSellPrice(e.target.value)}
+                    placeholder="0.00"
+                    inputProps={{ step: "0.01", min: "0" }}
+                    disabled={selling}
+                  />
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <Box sx={{ 
+                    p: 2, 
+                    backgroundColor: 'background.default', 
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider'
+                  }}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                      <Typography variant="body1">
+                        <strong>Sell Proceeds:</strong>
+                      </Typography>
+                      <Typography variant="h6" color="primary.main">
+                        {formatCurrencyDetailed(calculateSellProceeds())}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3 }}>
+          <Button 
+            onClick={handleSellClose} 
+            disabled={selling}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSellSubmit} 
+            variant="contained" 
+            color="error"
+            disabled={selling || !canSellQuantity() || !sellPrice}
+            startIcon={selling ? <CircularProgress size={20} /> : <SellIcon />}
+          >
+            {selling ? 'Selling...' : 'Sell Asset'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
     </Box>
   );
