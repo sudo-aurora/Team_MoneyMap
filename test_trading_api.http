@@ -1,0 +1,68 @@
+### Test Trading API Endpoints
+### Use this file with VS Code REST Client extension or similar
+
+### Base URL
+@baseUrl = http://localhost:8080/api/v1
+
+### 1. Get all available assets
+GET {{baseUrl}}/trading/assets/available
+
+###
+
+### 2. Get available stocks only
+GET {{baseUrl}}/trading/assets/available/type/STOCK
+
+###
+
+### 3. Search for assets
+GET {{baseUrl}}/trading/assets/available/search?query=apple
+
+###
+
+### 4. Check client wallet (assuming client ID 1 exists)
+GET {{baseUrl}}/trading/wallet/1
+
+###
+
+### 5. Add funds to wallet
+POST {{baseUrl}}/trading/wallet/1/deposit?amount=10000
+
+###
+
+### 6. Check wallet balance after adding funds
+GET {{baseUrl}}/trading/wallet/1
+
+###
+
+### 7. Buy Apple stock
+POST {{baseUrl}}/trading/buy?clientId=1&symbol=AAPL&quantity=10&price=175.50
+
+###
+
+### 8. Buy Bitcoin
+POST {{baseUrl}}/trading/buy?clientId=1&symbol=BTC&quantity=0.1&price=43250
+
+###
+
+### 9. Check wallet balance after purchases
+GET {{baseUrl}}/trading/wallet/1
+
+###
+
+### 10. Check if client has sufficient funds for a large purchase
+GET {{baseUrl}}/trading/wallet/1/check?amount=50000
+
+###
+
+### 11. Try to buy with insufficient funds (should fail)
+POST {{baseUrl}}/trading/buy?clientId=1&symbol=TSLA&quantity=100&price=245.80
+
+###
+
+### 12. Get client's assets to verify purchases
+GET {{baseUrl}}/assets/client/1
+
+###
+
+### 13. Get transactions for the first asset (you'll need to replace ID)
+GET {{baseUrl}}/assets/1/transactions

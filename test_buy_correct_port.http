@@ -1,0 +1,17 @@
+### Test Buy Asset with Correct Port (8181)
+
+### 1. Test the exact same request as frontend
+POST http://localhost:8181/api/v1/trading/buy?clientId=1&symbol=TSLA&quantity=2&price=245.8
+
+### 2. Test with curl using correct port
+curl -v -X POST "http://localhost:8181/api/v1/trading/buy?clientId=1&symbol=TSLA&quantity=2&price=245.8" \
+     -H "Content-Type: application/json"
+
+### 3. Test wallet balance first
+GET http://localhost:8181/api/v1/trading/wallet/1
+
+### 4. Test available assets
+GET http://localhost:8181/api/v1/trading/assets/available
+
+### 5. Test with simpler parameters
+POST http://localhost:8181/api/v1/trading/buy?clientId=1&symbol=AAPL&quantity=1&price=100

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Proxy</title>
+</head>
+<body>
+    <h1>Testing API Proxy</h1>
+    <button onclick="testWallet()">Test Wallet</button>
+    <button onclick="testBuy()">Test Buy</button>
+    <div id="result"></div>
+
+    <script>
+        async function testWallet() {
+            try {
+                const response = await fetch('/api/v1/trading/wallet/1');
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<pre>Error: ' + error.message + '</pre>';
+            }
+        }
+
+        async function testBuy() {
+            try {
+                const response = await fetch('/api/v1/trading/buy?clientId=1&symbol=TSLA&quantity=1&price=245.8', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<pre>Error: ' + error.message + '</pre>';
+            }
+        }
+    </script>
+</body>
+</html>

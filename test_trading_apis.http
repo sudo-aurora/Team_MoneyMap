@@ -1,0 +1,37 @@
+### Test Trading APIs - Copy this file and run in VS Code with REST Client extension
+
+### 1. Check if application is running
+GET http://localhost:8080/actuator/health
+
+### 2. Get Available Assets (should return list of tradable assets)
+GET http://localhost:8080/api/v1/trading/assets/available
+
+### 3. Check Client Wallet (client 1 should have 10000)
+GET http://localhost:8080/api/v1/trading/wallet/1
+
+### 4. Buy Apple Stock (should succeed and create transaction)
+POST http://localhost:8080/api/v1/trading/buy?clientId=1&symbol=AAPL&quantity=10&price=175.50
+
+### 5. Check Wallet After Buy (should be 8245.00)
+GET http://localhost:8080/api/v1/trading/wallet/1
+
+### 6. Check Asset Holdings (should show AAPL with quantity 10)
+GET http://localhost:8080/api/v1/assets/client/1
+
+### 7. Sell Some Apple Stock (should succeed)
+POST http://localhost:8080/api/v1/trading/sell?clientId=1&assetId=1&quantity=5&price=180.00
+
+### 8. Check Wallet After Sell (should be 9145.00)
+GET http://localhost:8080/api/v1/trading/wallet/1
+
+### 9. Check Final Asset Quantity (should be 5 remaining)
+GET http://localhost:8080/api/v1/assets/1
+
+### 10. Test Error - Buy with Insufficient Funds (should fail)
+POST http://localhost:8080/api/v1/trading/buy?clientId=1&symbol=TSLA&quantity=1000&price=250.00
+
+### 11. Test Error - Invalid Asset Symbol (should fail)
+POST http://localhost:8080/api/v1/trading/buy?clientId=1&symbol=INVALID&quantity=10&price=100.00
+
+### 12. Test Error - Client Not Found (should fail)
+GET http://localhost:8080/api/v1/trading/wallet/999
