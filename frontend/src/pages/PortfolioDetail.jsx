@@ -495,10 +495,10 @@ export default function PortfolioDetail() {
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => navigate(`/assets/new?portfolioId=${id}`)}
+                onClick={() => navigate(`/buy-asset?portfolioId=${id}&clientId=${portfolio.clientId}`)}
                 size="small"
               >
-                Add Asset
+                Buy Asset
               </Button>
             </Box>
           </Box>
@@ -528,11 +528,11 @@ export default function PortfolioDetail() {
                         <Button
                           variant="contained"
                           startIcon={<AddIcon />}
-                          onClick={() => navigate(`/assets/new?portfolioId=${id}`)}
+                          onClick={() => navigate(`/buy-asset?portfolioId=${id}&clientId=${portfolio.clientId}`)}
                           size="small"
                           sx={{ mt: 1 }}
                         >
-                          Add Your First Asset
+                          Buy Your First Asset
                         </Button>
                       </Box>
                     </TableCell>
