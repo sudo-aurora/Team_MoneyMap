@@ -131,7 +131,7 @@ public class TransactionServiceImpl implements TransactionService {
     @Transactional(readOnly = true)
     public PagedResponseDTO<TransactionResponseDTO> getAllTransactions(Pageable pageable) {
         log.debug("Fetching all transactions with pagination");
-        Page<Transaction> page = transactionRepository.findAll(pageable);
+        Page<Transaction> page = transactionRepository.findAllWithAssets(pageable);
         return PagedResponseDTO.from(page, transactionMapper::toResponseDTO);
     }
 

@@ -68,6 +68,7 @@ public class Client {
     private String locale; // Locale for language/formatting (e.g., en_US, hi_IN)
 
     @Column(name = "wallet_balance", precision = 19, scale = 4)
+    @Builder.Default
     private BigDecimal walletBalance = BigDecimal.ZERO;
     
     @Column(name = "wallet_locked_balance", precision = 19, scale = 4)
@@ -102,10 +103,16 @@ public class Client {
     }
      // Wallet methods
     public void addToWallet(BigDecimal amount) {
+        if (this.walletBalance == null) {
+            this.walletBalance = BigDecimal.ZERO;
+        }
         this.walletBalance = this.walletBalance.add(amount);
     }
     
     public void deductFromWallet(BigDecimal amount) {
+        if (this.walletBalance == null) {
+            this.walletBalance = BigDecimal.ZERO;
+        }
         if (walletBalance.compareTo(amount) < 0) {
             throw new InsufficientFundsException("Insufficient wallet balance");
         }
@@ -113,6 +120,9 @@ public class Client {
     }
     
     public boolean hasSufficientFunds(BigDecimal amount) {
+        if (this.walletBalance == null) {
+            this.walletBalance = BigDecimal.ZERO;
+        }
         return walletBalance.compareTo(amount) >= 0;
     }
 

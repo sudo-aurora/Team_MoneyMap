@@ -24,6 +24,7 @@ A comprehensive REST API for managing investment portfolios, built with Spring B
 1. **Java 21** - [Download from Adoptium](https://adoptium.net/temurin/releases/?version=21)
 2. **MySQL 8.x** - Running on localhost:3306
 3. **Maven** (included via wrapper)
+4. **Python 3.8+** - For running API scripts (FinHub, data processing)
 
 ## Quick Start
 
@@ -62,6 +63,51 @@ java -jar target\MoneyMap-0.0.1-SNAPSHOT.jar
 | **Swagger UI** | http://localhost:8181/swagger-ui.html |
 | **API Docs (JSON)** | http://localhost:8181/api-docs |
 | **Base API URL** | http://localhost:8181/api/v1 |
+
+---
+
+## Python Scripts Setup
+
+Some backend functionality requires Python scripts (FinHub API, data processing). Follow these steps to set up the Python environment:
+
+### 1. Navigate to Scripts Directory
+```cmd
+cd backend\scripts
+```
+
+### 2. Create Virtual Environment
+```cmd
+python -m venv venv
+```
+
+### 3. Activate Virtual Environment (Windows)
+```cmd
+venv\Scripts\activate
+```
+
+### 4. Install Required Packages
+```cmd
+pip install -r requirements.txt
+```
+
+**Note:** The requirements.txt includes Flask-CORS for cross-origin requests between frontend and backend.
+
+### 5. Run Python Scripts
+```cmd
+# For FinHub API
+cd finhub_api
+python app.py
+
+# For data processing
+python data_final.py
+```
+
+### 6. Deactivate Virtual Environment
+```cmd
+deactivate
+```
+
+**Note:** The virtual environment must be activated each time you want to run Python scripts.
 
 ---
 

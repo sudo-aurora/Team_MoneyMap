@@ -133,6 +133,12 @@ public class AssetTradingServiceImpl implements AssetTradingService {
         client.addToWallet(totalProceeds);
         clientRepository.save(client);
 
+        // Update asset quantity - THIS WAS MISSING!
+        BigDecimal newQuantity = asset.getQuantity().subtract(quantity);
+        asset.setQuantity(newQuantity);
+        asset.setCurrentPrice(price); // Update current price
+        assetRepository.save(asset);
+
         // Create SELL transaction
         TransactionRequestDTO transactionRequest = TransactionRequestDTO.builder()
                 .assetId(assetId)
