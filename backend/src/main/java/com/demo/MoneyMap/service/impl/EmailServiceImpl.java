@@ -1,3 +1,4 @@
+/*
 package com.demo.MoneyMap.service.impl;
 
 import com.demo.MoneyMap.service.EmailService;
@@ -34,3 +35,4 @@ public class EmailServiceImpl implements EmailService {
         log.info("Low value alert sent to {}", to);
     }
 }
+*/
