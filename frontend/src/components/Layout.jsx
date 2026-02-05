@@ -23,9 +23,22 @@ import {
   TrendingUp as TrendingUpIcon,
   Payment as PaymentIcon,
   Notifications as NotificationsIcon,
+  Chat as ChatIcon,
 } from '@mui/icons-material';
 
 const drawerWidth = 240;
+
+
+  const menuItems = [
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+    { text: 'Clients', icon: <PeopleIcon />, path: '/clients' },
+    { text: 'Portfolios', icon: <AccountBalanceIcon />, path: '/portfolios' },
+    { text: 'Assets', icon: <TrendingUpIcon />, path: '/assets' },
+    { text: 'Transactions', icon: <PaymentIcon />, path: '/transactions' },
+    { text: 'Payments', icon: <PaymentIcon />, path: '/payments' },
+    { text: 'Alerts', icon: <NotificationsIcon />, path: '/alerts' },
+    { text: 'AI Chatbot', icon: <ChatIcon />, path: '/chatbot' },
+  ];
 
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
@@ -35,6 +48,7 @@ const menuItems = [
   { text: 'Payments', icon: <PaymentIcon />, path: '/payments' },
   { text: 'Alerts', icon: <NotificationsIcon />, path: '/alerts' },
 ];
+
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);

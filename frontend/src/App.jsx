@@ -14,6 +14,7 @@ import AssetForm from './pages/AssetForm';
 import Payments from './pages/Payments';
 import Alerts from './pages/Alerts';
 import Transactions from './pages/Transactions';
+import Chatbot from './pages/Chatbot';
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
             <Route path="transactions" element={<Transactions />} />
             <Route path="payments" element={<Payments />} />
             <Route path="alerts" element={<Alerts />} />
+            <Route path="chatbot" element={<Chatbot />} />
           </Route>
         </Routes>
       </BrowserRouter>
