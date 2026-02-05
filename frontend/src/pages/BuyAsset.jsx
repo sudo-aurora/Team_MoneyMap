@@ -23,7 +23,8 @@ import {
   ArrowBack as BackIcon, 
   AccountBalanceWallet as WalletIcon,
   TrendingUp as TrendingUpIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { tradingService } from '../services/tradingService';
 import { clientService } from '../services/clientService';
@@ -49,6 +50,9 @@ export default function BuyAsset() {
   const [filteredAssets, setFilteredAssets] = useState([]);
   const [selectedAsset, setSelectedAsset] = useState(null);
   
+  // Current prices from Yahoo Finance
+  const [currentPrices, setCurrentPrices] = useState({});
+  
   // Client wallet and portfolio
   const [walletBalance, setWalletBalance] = useState(0);
   const [clientId, setClientId] = useState(null);
@@ -65,7 +69,10 @@ export default function BuyAsset() {
       console.log('Setting clientId from URL param:', clientIdNum);
       setClientId(clientIdNum);
       setHasValidClient(true);
-      loadWalletBalance(clientIdNum);
+      // Add a longer delay for newly created clients to ensure backend is ready
+      setTimeout(() => {
+        loadWalletBalance(clientIdNum);
+      }, 2000);
     }
   }, [clientIdParam]);
   
@@ -89,6 +96,12 @@ export default function BuyAsset() {
       loadPortfolioAndClient();
     }
   }, [clientId, portfolioId]);
+
+  useEffect(() => {
+    if (availableAssets.length > 0) {
+      fetchCurrentPrices();
+    }
+  }, [availableAssets]);
 
   const loadPortfolioAndClient = async () => {
     try {
@@ -123,7 +136,7 @@ export default function BuyAsset() {
     }
   };
 
-  const loadWalletBalance = async (clientIdToLoad = null) => {
+  const loadWalletBalance = async (clientIdToLoad = null, retryCount = 0) => {
     try {
       const clientIdToUse = clientIdToLoad || clientId;
       console.log('Loading wallet balance for client:', clientIdToUse);
@@ -157,8 +170,36 @@ export default function BuyAsset() {
     } catch (err) {
       console.error('Error loading wallet balance:', err);
       console.error('Error details:', err.response?.data);
-      setWalletBalance(0);
+      
+      // Retry up to 3 times for newly created clients
+      if (retryCount < 3 && err.response?.status === 404) {
+        console.log(`Retrying wallet balance load (${retryCount + 1}/3)...`);
+        setTimeout(() => {
+          loadWalletBalance(clientIdToLoad, retryCount + 1);
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+      } else {
+        setWalletBalance(0);
+      }
     }
+  };
+
+  const fetchCurrentPrices = async () => {
+    const prices = {};
+    
+    for (const asset of availableAssets) {
+      try {
+        const response = await fetch(`http://localhost:5000/stock/${asset.symbol}?period=1mo`);
+        if (response.ok) {
+          const data = await response.json();
+          prices[asset.symbol] = data.latestPrice;
+        }
+      } catch (err) {
+        console.error(`Error fetching price for ${asset.symbol}:`, err);
+        prices[asset.symbol] = asset.currentMarketPrice; // Fallback to available asset price
+      }
+    }
+    
+    setCurrentPrices(prices);
   };
 
   const filterAssets = () => {
@@ -186,7 +227,7 @@ export default function BuyAsset() {
     setFormData(prev => ({
       ...prev,
       symbol: asset.symbol,
-      price: asset.currentMarketPrice.toString(),
+      price: (currentPrices[asset.symbol] || asset.currentMarketPrice).toString(),
       assetType: asset.assetType
     }));
   };
@@ -402,7 +443,7 @@ export default function BuyAsset() {
                               variant="outlined"
                             />
                             <Typography variant="h6" color="primary">
-                              ${asset.currentMarketPrice?.toLocaleString()}
+                              ${currentPrices[asset.symbol]?.toLocaleString() || asset.currentMarketPrice?.toLocaleString()}
                             </Typography>
                           </Box>
                         </Box>
@@ -423,11 +464,22 @@ export default function BuyAsset() {
                 Purchase Details
               </Typography>
 
-              <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <WalletIcon color="primary" />
-                <Typography variant="body2">
-                  Wallet Balance: <strong>${hasValidClient ? walletBalance.toLocaleString() : '0.00'}</strong>
-                </Typography>
+              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <WalletIcon color="primary" />
+                  <Typography variant="body2">
+                    Wallet Balance: <strong>${hasValidClient ? walletBalance.toLocaleString() : '0.00'}</strong>
+                  </Typography>
+                </Box>
+                {hasValidClient && (
+                  <IconButton 
+                    size="small" 
+                    onClick={() => loadWalletBalance(clientId)}
+                    disabled={!clientId}
+                  >
+                    <RefreshIcon fontSize="small" />
+                  </IconButton>
+                )}
               </Box>
 
               <form onSubmit={handleSubmit}>

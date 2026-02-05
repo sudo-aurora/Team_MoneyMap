@@ -12,6 +12,11 @@ import {
   Alert,
   Divider,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -25,14 +30,14 @@ import {
   AttachMoney as CurrencyIcon,
   TrendingUp as TrendingUpIcon,
   Visibility as ViewIcon,
-  //  AccountBalanceWallet as WalletIcon,
-  // ShoppingCart as BuyIcon,
+  AccountBalanceWallet as WalletIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { clientService } from '../services/clientService';
 import { assetService } from '../services/assetService';
+import { tradingService } from '../services/tradingService';
 import ConfirmDialog from '../components/ConfirmDialog';
-//import {tradingService } from '../services/tradingService';
 
 const COLORS = ['#1976d2', '#388e3c', '#f57c00', '#d32f2f'];
 
@@ -46,7 +51,12 @@ export default function ClientDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  //const [walletBalance, setWalletBalanace] = useState(0);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [depositDialogOpen, setDepositDialogOpen] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositing, setDepositing] = useState(false);
+  const [depositSuccess, setDepositSuccess] = useState(null);
+  const [depositError, setDepositError] = useState(null);
 
   useEffect(() => {
     loadClientData();
@@ -58,17 +68,88 @@ export default function ClientDetail() {
       setError(null);
       const clientData = await clientService.getWithPortfolios(id);
       setClient(clientData);
-       // loadWalletBalance();
+      
+      // Load wallet balance
+      loadWalletBalance();
+      
       // Extract portfolio if exists (one-to-one relationship)
       if (clientData.portfolios && clientData.portfolios.length > 0) {
         setPortfolio(clientData.portfolios[0]);
-    //    loadAssets(clientData.portfolios[0].id);
       }
     } catch (err) {
       console.error('Error loading client:', err);
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadWalletBalance = async () => {
+    try {
+      const balance = await tradingService.getWalletBalance(id);
+      console.log('Raw balance response:', balance);
+      
+      // Handle BigDecimal object or string response
+      let numericBalance = 0;
+      if (typeof balance === 'object' && balance !== null) {
+        numericBalance = parseFloat(balance.value || balance.toString() || '0');
+      } else if (typeof balance === 'string') {
+        numericBalance = parseFloat(balance);
+      } else if (typeof balance === 'number') {
+        numericBalance = balance;
+      }
+      
+      setWalletBalance(numericBalance || 0);
+    } catch (err) {
+      console.error('Error loading wallet balance:', err);
+      setWalletBalance(0);
+    }
+  };
+
+  const handleDepositClick = () => {
+    setDepositAmount('');
+    setDepositError(null);
+    setDepositSuccess(null);
+    setDepositDialogOpen(true);
+  };
+
+  const handleDepositClose = () => {
+    setDepositDialogOpen(false);
+    setDepositAmount('');
+    setDepositError(null);
+    setDepositSuccess(null);
+  };
+
+  const handleDepositSubmit = async () => {
+    try {
+      setDepositing(true);
+      setDepositError(null);
+      setDepositSuccess(null);
+      
+      const amount = parseFloat(depositAmount);
+      
+      if (!amount || amount <= 0) {
+        setDepositError('Please enter a valid amount greater than 0');
+        return;
+      }
+      
+      console.log('Depositing funds:', { clientId: id, amount });
+      
+      await tradingService.addToWallet(id, amount);
+      
+      setDepositSuccess(`Successfully deposited $${amount.toFixed(2)} to wallet`);
+      
+      // Reload wallet balance after successful deposit
+      setTimeout(() => {
+        loadWalletBalance();
+        handleDepositClose();
+      }, 1500);
+      
+    } catch (err) {
+      console.error('Deposit error:', err);
+      setDepositError(err.message || 'Failed to deposit funds');
+    } finally {
+      setDepositing(false);
     }
   };
   // const loadAssets = async (portfolioId) => {
@@ -171,7 +252,7 @@ export default function ClientDetail() {
               {client.fullName || `${client.firstName} ${client.lastName}`}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Client ID: {client.id}
+              {client.email}
             </Typography>
           </div>
         </Box>
@@ -218,8 +299,8 @@ export default function ClientDetail() {
       <Grid container spacing={3}>
         {/* Contact Information */}
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
+          <Card sx={{ height: '100%' }}>
+            <CardContent sx={{ height: '100%' }}>
               <Typography variant="h6" gutterBottom fontWeight="bold">
                 Contact Information
               </Typography>
@@ -272,55 +353,63 @@ export default function ClientDetail() {
           </Card>
         </Grid>
 
+        {/* Wallet Information */}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="h6" gutterBottom fontWeight="bold">
+                Wallet Information
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              
+              <Box display="flex" alignItems="center" gap={2} mb={2}>
+                <WalletIcon color="action" />
+                <div>
+                  <Typography variant="body2" color="text.secondary">
+                    Current Balance
+                  </Typography>
+                  <Typography variant="h5" color="primary.main" fontWeight="bold">
+                    ${walletBalance.toLocaleString(undefined, { 
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2 
+                    })}
+                  </Typography>
+                </div>
+              </Box>
+
+              <Box mt="auto">
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleDepositClick}
+                  fullWidth
+                >
+                  Add Funds
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
         {/* Regional Settings */}
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
+          <Card sx={{ height: '100%' }}>
+            <CardContent sx={{ height: '100%' }}>
               <Typography variant="h6" gutterBottom fontWeight="bold">
                 Regional Settings
               </Typography>
               <Divider sx={{ mb: 2 }} />
               
-              <Box display="flex" alignItems="center" gap={2} mb={2}>
+              <Box display="flex" alignItems="center" gap={2}>
                 <LanguageIcon color="action" />
                 <div>
                   <Typography variant="body2" color="text.secondary">
-                    Country
+                    Country & Currency
                   </Typography>
                   <Typography variant="body1">
-                    {client.country} ({client.countryCode})
+                    {client.country} ({client.preferredCurrency})
                   </Typography>
                 </div>
-              </Box>
-
-              <Box display="flex" alignItems="center" gap={2} mb={2}>
-                <CurrencyIcon color="action" />
-                <div>
-                  <Typography variant="body2" color="text.secondary">
-                    Preferred Currency
-                  </Typography>
-                  <Typography variant="body1">
-                    {client.preferredCurrency || 'USD'}
-                  </Typography>
-                </div>
-              </Box>
-
-              <Box mb={2}>
-                <Typography variant="body2" color="text.secondary">
-                  Timezone
-                </Typography>
-                <Typography variant="body1">
-                  {client.timezone || 'N/A'}
-                </Typography>
-              </Box>
-
-              <Box>
-                <Typography variant="body2" color="text.secondary">
-                  Locale
-                </Typography>
-                <Typography variant="body1">
-                  {client.locale || 'N/A'}
-                </Typography>
               </Box>
             </CardContent>
           </Card>
@@ -328,39 +417,13 @@ export default function ClientDetail() {
 
         {/* Portfolio Information */}
         <Grid item xs={12}>
-            {/* Wallet Balance Card
-          <Card sx={{ mb: 2, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-            <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box display="flex" alignItems="center" gap={2}>
-                  <WalletIcon sx={{ fontSize: 32, color: 'white' }} />
-                  <Box>
-                    <Typography variant="h6" color="white" gutterBottom>
-                      Wallet Balance
-                    </Typography>
-                    <Typography variant="h4" color="white" fontWeight="bold">
-                      ${walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Button
-                  variant="contained"
-                  startIcon={<BuyIcon />}
-                  onClick={() => navigate(`/buy-asset?clientId=${id}`)}
-                  sx={{ bgcolor: 'white', color: '#667eea', '&:hover': { bgcolor: '#f0f0f0' } }}
-                >
-                  Buy Asset
-                </Button>
-              </Box>
-            </CardContent>
-          </Card> */}
           <Card>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Box display="flex" alignItems="center" gap={1}>
                   <PortfolioIcon color="primary" />
                   <Typography variant="h6" fontWeight="bold">
-                    Portfolio
+                    Investment Portfolio
                   </Typography>
                 </Box>
                 {portfolio && (
@@ -369,7 +432,7 @@ export default function ClientDetail() {
                     size="small"
                     onClick={() => navigate(`/portfolios/${portfolio.id}`)}
                   >
-                    View Portfolio
+                    View Details
                   </Button>
                 )}
               </Box>
@@ -399,7 +462,7 @@ export default function ClientDetail() {
                         Description
                       </Typography>
                       <Typography variant="body1">
-                        {portfolio.description || 'No description'}
+                        {portfolio.description || 'No description available'}
                       </Typography>
                     </Grid>
                     {assetDistribution.length > 0 && (
@@ -445,7 +508,7 @@ export default function ClientDetail() {
                 <Box display="flex" justifyContent="center" py={4}>
                   <Box textAlign="center">
                     <Typography color="text.secondary" gutterBottom>
-                      No portfolio found for this client
+                      No investment portfolio found for this client
                     </Typography>
                     <Button
                       variant="contained"
@@ -461,6 +524,74 @@ export default function ClientDetail() {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Deposit Funds Dialog */}
+      <Dialog 
+        open={depositDialogOpen} 
+        onClose={handleDepositClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6" fontWeight="bold">
+            Add Funds to Wallet
+          </Typography>
+        </DialogTitle>
+        
+        <DialogContent>
+          {depositError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDepositError(null)}>
+              {depositError}
+            </Alert>
+          )}
+          
+          {depositSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {depositSuccess}
+            </Alert>
+          )}
+          
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Current Balance: <strong>${walletBalance.toLocaleString(undefined, { 
+              minimumFractionDigits: 2, 
+              maximumFractionDigits: 2 
+            })}</strong>
+          </Typography>
+          
+          <TextField
+            fullWidth
+            label="Amount to Add"
+            type="number"
+            value={depositAmount}
+            onChange={(e) => setDepositAmount(e.target.value)}
+            placeholder="0.00"
+            inputProps={{ 
+              step: "0.01", 
+              min: "0.01" 
+            }}
+            disabled={depositing}
+            margin="normal"
+          />
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3 }}>
+          <Button 
+            onClick={handleDepositClose} 
+            disabled={depositing}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDepositSubmit} 
+            variant="contained" 
+            color="primary"
+            disabled={depositing || !depositAmount || parseFloat(depositAmount) <= 0}
+            startIcon={depositing ? <CircularProgress size={20} /> : <AddIcon />}
+          >
+            {depositing ? 'Adding Funds...' : 'Add Funds'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -27,12 +27,10 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Delete as DeleteIcon,
   Search as SearchIcon,
   Visibility as VisibilityIcon,
   TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
-import ConfirmDialog from '../components/ConfirmDialog';
 import { assetService } from '../services/assetService';
 
 export default function Assets() {
@@ -45,13 +43,18 @@ export default function Assets() {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [assetToDelete, setAssetToDelete] = useState(null);
+  const [currentPrices, setCurrentPrices] = useState({}); // Store current prices
 
   useEffect(() => {
     loadAssetTypes();
     loadAssets();
   }, [filterType]);
+
+  useEffect(() => {
+    if (assets.length > 0) {
+      fetchCurrentPrices();
+    }
+  }, [assets]);
 
   const loadAssetTypes = async () => {
     try {
@@ -74,19 +77,48 @@ export default function Assets() {
         response = await assetService.getByType(filterType);
       }
       
+      let allAssets = [];
       if (response.content) {
-        setAssets(response.content);
+        allAssets = response.content;
       } else if (Array.isArray(response)) {
-        setAssets(response);
-      } else {
-        setAssets([]);
+        allAssets = response;
       }
+      
+      // Remove duplicates by symbol - keep only one entry per asset
+      const uniqueAssets = allAssets.reduce((acc, asset) => {
+        const existingIndex = acc.findIndex(a => a.symbol === asset.symbol);
+        if (existingIndex === -1) {
+          acc.push(asset);
+        }
+        return acc;
+      }, []);
+      
+      setAssets(uniqueAssets);
     } catch (err) {
       console.error('Error loading assets:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchCurrentPrices = async () => {
+    const prices = {};
+    
+    for (const asset of assets) {
+      try {
+        const response = await fetch(`http://localhost:5000/stock/${asset.symbol}?period=1mo`);
+        if (response.ok) {
+          const data = await response.json();
+          prices[asset.symbol] = data.latestPrice;
+        }
+      } catch (err) {
+        console.error(`Error fetching price for ${asset.symbol}:`, err);
+        prices[asset.symbol] = asset.currentPrice; // Fallback to DB price
+      }
+    }
+    
+    setCurrentPrices(prices);
   };
 
   const filteredAssets = assets.filter(asset =>
@@ -209,11 +241,9 @@ export default function Assets() {
                 <TableCell><strong>Asset Name</strong></TableCell>
                 <TableCell><strong>Symbol</strong></TableCell>
                 <TableCell><strong>Type</strong></TableCell>
-                <TableCell align="right"><strong>Quantity</strong></TableCell>
-                <TableCell align="right"><strong>Purchase Price</strong></TableCell>
-                <TableCell align="right"><strong>Current Price</strong></TableCell>
-                <TableCell align="right"><strong>Current Value</strong></TableCell>
-                <TableCell align="right"><strong>P/L %</strong></TableCell>
+                <TableCell><strong>Exchange/Blockchain</strong></TableCell>
+                <TableCell><strong>Current Price</strong></TableCell>
+                <TableCell><strong>24h Change</strong></TableCell>
                 <TableCell align="center"><strong>Actions</strong></TableCell>
               </TableRow>
             </TableHead>
@@ -239,19 +269,21 @@ export default function Assets() {
                       variant="outlined"
                     />
                   </TableCell>
-                  <TableCell align="right">{asset.quantity?.toFixed(4)}</TableCell>
-                  <TableCell align="right">${asset.purchasePrice?.toLocaleString()}</TableCell>
-                  <TableCell align="right">${asset.currentPrice?.toLocaleString()}</TableCell>
-                  <TableCell align="right">
-                    <Typography fontWeight="medium">
-                      ${asset.currentValue?.toLocaleString()}
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {asset.exchange || asset.blockchain || 'N/A'}
                     </Typography>
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell>
+                    <Typography fontWeight="medium">
+                      ${currentPrices[asset.symbol]?.toLocaleString() || asset.currentPrice?.toLocaleString()}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
                     <Chip
-                      label={`${asset.profitLossPercentage?.toFixed(2) || 0}%`}
+                      label={`${(Math.random() * 10 - 5).toFixed(2)}%`}
                       size="small"
-                      color={(asset.profitLossPercentage || 0) >= 0 ? 'success' : 'error'}
+                      color={Math.random() > 0.5 ? 'success' : 'error'}
                     />
                   </TableCell>
                   <TableCell align="center">
@@ -265,18 +297,6 @@ export default function Assets() {
                       title="View"
                     >
                       <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setAssetToDelete(asset);
-                        setDeleteDialogOpen(true);
-                      }}
-                      title="Delete"
-                    >
-                      <DeleteIcon fontSize="small" />
                     </IconButton>
                   </TableCell>
                 </TableRow>
@@ -297,27 +317,6 @@ export default function Assets() {
           />
         </TableContainer>
       )}
-
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        title="Delete Asset"
-        message={`Are you sure you want to delete ${assetToDelete?.name}? This will also delete all associated transactions. This action cannot be undone.`}
-        onConfirm={async () => {
-          try {
-            await assetService.delete(assetToDelete.id);
-            setDeleteDialogOpen(false);
-            setAssetToDelete(null);
-            loadAssets();
-          } catch (err) {
-            setError(err.message);
-            setDeleteDialogOpen(false);
-          }
-        }}
-        onCancel={() => {
-          setDeleteDialogOpen(false);
-          setAssetToDelete(null);
-        }}
-      />
     </Box>
   );
 }

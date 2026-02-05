@@ -15,6 +15,8 @@ import {
 } from '@mui/material';
 import { ArrowBack as BackIcon, Save as SaveIcon } from '@mui/icons-material';
 import { clientService } from '../services/clientService';
+import { portfolioService } from '../services/portfolioService';
+import { tradingService } from '../services/tradingService';
 
 const COUNTRIES = [
   { code: 'US', name: 'United States', currency: 'USD', timezone: 'America/New_York', locale: 'en_US' },
@@ -47,6 +49,7 @@ export default function ClientForm() {
     preferredCurrency: 'USD',
     timezone: 'America/New_York',
     locale: 'en_US',
+    walletBalance: '10000', // Default wallet balance
   });
 
   useEffect(() => {
@@ -73,6 +76,7 @@ export default function ClientForm() {
         preferredCurrency: data.preferredCurrency || 'USD',
         timezone: data.timezone || 'America/New_York',
         locale: data.locale || 'en_US',
+        walletBalance: data.walletBalance?.toString() || '10000',
       });
     } catch (err) {
       setError(err.message);
@@ -112,11 +116,29 @@ export default function ClientForm() {
       
       if (isEdit) {
         await clientService.update(id, formData);
+        navigate('/clients');
       } else {
-        await clientService.create(formData);
+        // Create client first
+        const newClient = await clientService.create(formData);
+        
+        // Add initial wallet balance using the deposit endpoint
+        const initialBalance = parseFloat(formData.walletBalance) || 10000;
+        if (initialBalance > 0) {
+          await tradingService.addToWallet(newClient.id, initialBalance);
+        }
+        
+        // Create default portfolio for the new client
+        const portfolioData = {
+          name: `${formData.firstName} ${formData.lastName}'s Portfolio`,
+          description: 'Default investment portfolio',
+          clientId: newClient.id,
+          active: true
+        };
+        const newPortfolio = await portfolioService.create(portfolioData);
+        
+        // Redirect to buy assets page
+        navigate(`/buy-asset?clientId=${newClient.id}&portfolioId=${newPortfolio.id}`);
       }
-      
-      navigate('/clients');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -271,6 +293,30 @@ export default function ClientForm() {
                 </TextField>
               </Grid>
 
+              {/* Financial Information */}
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ mt: 2 }}>
+                  Financial Information
+                </Typography>
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  required
+                  type="number"
+                  label="Initial Wallet Balance"
+                  name="walletBalance"
+                  value={formData.walletBalance}
+                  onChange={handleChange}
+                  inputProps={{ 
+                    step: "0.01", 
+                    min: "0" 
+                  }}
+                  helperText="Starting amount for trading"
+                />
+              </Grid>
+
               {/* Regional Settings (Auto-filled based on country) */}
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom color="primary" sx={{ mt: 2 }}>
@@ -324,7 +370,7 @@ export default function ClientForm() {
                     startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
                     disabled={saving}
                   >
-                    {saving ? 'Saving...' : (isEdit ? 'Update Client' : 'Create Client')}
+                    {saving ? 'Saving...' : (isEdit ? 'Update Client' : 'Create Client & Portfolio')}
                   </Button>
                 </Box>
               </Grid>

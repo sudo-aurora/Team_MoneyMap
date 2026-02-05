@@ -93,6 +93,9 @@ export default function PortfolioDetail() {
   const [walletBalance, setWalletBalance] = useState(0);
   const [loadingWallet, setLoadingWallet] = useState(false);
 
+  // Current prices from Yahoo Finance
+  const [currentPrices, setCurrentPrices] = useState({});
+
   useEffect(() => {
     loadPortfolioData();
   }, [id]);
@@ -102,6 +105,12 @@ export default function PortfolioDetail() {
       loadWalletBalance(portfolio.clientId);
     }
   }, [portfolio?.clientId]);
+
+  useEffect(() => {
+    if (assets.length > 0) {
+      fetchCurrentPrices();
+    }
+  }, [assets]);
 
   const loadPortfolioData = async () => {
     try {
@@ -181,6 +190,25 @@ export default function PortfolioDetail() {
     }
   };
 
+  const fetchCurrentPrices = async () => {
+    const prices = {};
+    
+    for (const asset of assets) {
+      try {
+        const response = await fetch(`http://localhost:5000/stock/${asset.symbol}?period=1mo`);
+        if (response.ok) {
+          const data = await response.json();
+          prices[asset.symbol] = data.latestPrice;
+        }
+      } catch (err) {
+        console.error(`Error fetching price for ${asset.symbol}:`, err);
+        prices[asset.symbol] = asset.currentPrice; // Fallback to DB price
+      }
+    }
+    
+    setCurrentPrices(prices);
+  };
+
   if (loading) {
     return (
       <Box height="60vh" display="flex" justifyContent="center" alignItems="center">
@@ -214,7 +242,7 @@ export default function PortfolioDetail() {
     {
       title: 'Total Profit',
       value: `$${assets.reduce(
-        (sum, a) => sum + ((a.currentValue || 0) - (a.purchasePrice * a.quantity)),
+        (sum, a) => sum + (((currentPrices[a.symbol] || a.currentPrice) - a.purchasePrice) * a.quantity),
         0
       ).toFixed(2)}`,
       gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
@@ -257,7 +285,7 @@ export default function PortfolioDetail() {
   const handleSellClick = (asset) => {
     setSelectedAsset(asset);
     setSellQuantity('');
-    setSellPrice(asset.currentPrice?.toString() || '');
+    setSellPrice(currentPrices[asset.symbol]?.toString() || asset.currentPrice?.toString() || '');
     setSellError(null);
     setSellSuccess(null);
     setSellDialogOpen(true);
@@ -701,7 +729,8 @@ export default function PortfolioDetail() {
                   </TableRow>
                 ) : (
                   assets.map(asset => {
-                    const profitLoss = asset.profitLossPercentage || 0;
+                    const currentPrice = currentPrices[asset.symbol] || asset.currentPrice;
+                    const profitLoss = ((currentPrice - asset.purchasePrice) / asset.purchasePrice) * 100;
                     const isPositive = profitLoss >= 0;
                     
                     return (
@@ -754,7 +783,10 @@ export default function PortfolioDetail() {
 
                         <TableCell align="right">
                           <Typography fontWeight="medium">
-                            ${asset.currentPrice?.toLocaleString(undefined, { 
+                            ${currentPrices[asset.symbol]?.toLocaleString(undefined, { 
+                              minimumFractionDigits: 2, 
+                              maximumFractionDigits: 2 
+                            }) || asset.currentPrice?.toLocaleString(undefined, { 
                               minimumFractionDigits: 2, 
                               maximumFractionDigits: 2 
                             })}
@@ -809,7 +841,7 @@ export default function PortfolioDetail() {
         open={sellDialogOpen} 
         onClose={handleSellClose}
         maxWidth="sm"
-        fullWidth
+        fullWidth={false}
         PaperProps={{
           sx: { borderRadius: 3 }
         }}
@@ -849,10 +881,32 @@ export default function PortfolioDetail() {
                     Current Price
                   </Typography>
                   <Typography variant="h6" fontWeight="bold">
-                    ${selectedAsset.currentPrice?.toLocaleString(undefined, { 
+                    ${currentPrices[selectedAsset.symbol]?.toLocaleString(undefined, { 
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2 
+                    }) || selectedAsset.currentPrice?.toLocaleString(undefined, { 
                       minimumFractionDigits: 2, 
                       maximumFractionDigits: 2 
                     })}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Real-time from Yahoo Finance
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    P/L on Position
+                  </Typography>
+                  <Typography variant="h6" fontWeight="bold" color={
+                    ((currentPrices[selectedAsset.symbol] || selectedAsset.currentPrice) - selectedAsset.purchasePrice) >= 0 
+                      ? 'success.main' 
+                      : 'error.main'
+                  }>
+                    {((currentPrices[selectedAsset.symbol] || selectedAsset.currentPrice) - selectedAsset.purchasePrice) >= 0 ? '+' : ''}
+                    ${(((currentPrices[selectedAsset.symbol] || selectedAsset.currentPrice) - selectedAsset.purchasePrice) * selectedAsset.quantity).toFixed(2)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {((((currentPrices[selectedAsset.symbol] || selectedAsset.currentPrice) - selectedAsset.purchasePrice) / selectedAsset.purchasePrice) * 100).toFixed(2)}%
                   </Typography>
                 </Grid>
               </Grid>
