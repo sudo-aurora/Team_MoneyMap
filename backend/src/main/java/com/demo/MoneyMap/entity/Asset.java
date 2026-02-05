@@ -9,6 +9,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -72,6 +74,11 @@ public abstract class Asset {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @Column(name = "last_alert_sent_at")
+    private Instant lastAlertSentAt;
+
+
 
     /**
      * Abstract method to get the asset type.
@@ -160,4 +167,13 @@ public abstract class Asset {
                 .divide(costBasis, 4, java.math.RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100));
     }
+    public boolean canSendAlert(Duration cooldown) {
+        return lastAlertSentAt == null ||
+                lastAlertSentAt.isBefore(Instant.now().minus(cooldown));
+    }
+
+    public void markAlertSent() {
+        this.lastAlertSentAt = Instant.now();
+    }
+
 }
