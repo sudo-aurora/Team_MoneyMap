@@ -22,6 +22,7 @@ import {
   TrendingUp as TrendingUpIcon,
   Payment as PaymentIcon,
   Notifications as NotificationsIcon,
+  Chat as ChatIcon,
 } from '@mui/icons-material';
 
 const drawerWidth = 240;
@@ -34,6 +35,7 @@ const drawerWidth = 240;
     { text: 'Transactions', icon: <PaymentIcon />, path: '/transactions' },
     { text: 'Payments', icon: <PaymentIcon />, path: '/payments' },
     { text: 'Alerts', icon: <NotificationsIcon />, path: '/alerts' },
+    { text: 'AI Chatbot', icon: <ChatIcon />, path: '/chatbot' },
   ];
 
 export default function Layout() {
